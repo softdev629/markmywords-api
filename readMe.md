@@ -27,4 +27,4 @@ This project is backend for student's work annotation api.
 
 ## Status
 
-Wine Chatbot Server is completed.
+MarkMyWords Annotation Server is process.
