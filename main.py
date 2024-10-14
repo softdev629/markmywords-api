@@ -4,23 +4,8 @@ from dotenv import load_dotenv
 import os
 import anthropic
 import json
-from pydantic import BaseModel
-
-
-class IAnnotationItem(BaseModel):
-    subpart: str
-    comment: str
-
-
-class IChatMessageItem(BaseModel):
-    role: str
-    content: str
-
-
-class IChatRequest(BaseModel):
-    context: str
-    annotations: list[IAnnotationItem]
-    messages: list[IChatMessageItem]
+from type import IChatRequest, IAnnotationRequest
+import requests
 
 
 load_dotenv()
@@ -47,23 +32,52 @@ app.add_middleware(
 )
 
 
+@app.post("/api/signin")
+async def signin(email: str = Body(embed=True)):
+    exists = False
+    response = requests.post(
+        url="https://dev.markmywords.tech/api/admin/email",
+        headers={
+            "Authorization": "Bearer 01923272-490c-7fa4-ba32-a7af7235be06",
+            "Content-Type": "application/json",
+        },
+        json={"email": email},
+    )
+    if response.status_code == 200:
+        json_data = response.json()
+        exists = json_data["exists"]
+    return {"status": "success", "data": {"exists": exists}}
+
+
 @app.post("/api/annotate")
-async def annotate(context: str = Body(embed=True)):
+async def annotate(reqData: IAnnotationRequest):
     response = client.messages.create(
         model="claude-3-5-sonnet-20240620",
         max_tokens=2048,
-        system="""You are a seasoned teacher who has to assess student's submit and give annotations for improvements and fixes. You must return annotations in array of JSON format.
+        system="""You are a seasoned teacher who has to assess student's submit and give annotations for improvements and fixes. Context, Task Type, Skillsets are Given. You must return annotation assess result in JSON format.
+
         {
-          subpart: ANNOTATION_PART,
-          comment: ANNOTATION_TEXT
+          graph: [
+            {
+              name: SKILLSET_ITEM,
+              score: SCORE
+            }
+          ],
+          improve: [
+            {
+                subpart: ANNOTATION_PART,
+                comment: ANNOTATION_TEXT
+            }
+          ]
         }
         
-        subpart is the sub part of the context which needs annotation and comment is annotation text.
+        graph part is array of json for scores for skillset items given, name is skillset item name, score is the score(1-100) you've assessed for that skillset item
+        improve part is array of json for annotations, subpart is the sub part which is in the context searchable which needs annotation and comment is annotation text.
         """,  # <-- role prompt
         messages=[
             {
                 "role": "user",
-                "content": f"You must return JSON array data only. Annotate this context for a student: <document>{context}</document>",
+                "content": f"You must return JSON array data only.\n\ncontext: <context>{reqData.context}</context>\n\Task Type: <task>{reqData.task}</task>\n\nSkillsets: <skillsets>{reqData.skillSet}</skillsets>",
             }
         ],
     )
