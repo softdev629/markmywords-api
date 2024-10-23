@@ -19,9 +19,7 @@ client = anthropic.Anthropic(
 
 app = FastAPI()
 
-origins = [
-    "https://localhost:3000",
-]
+origins = ["https://localhost:3000", "https://docs.google.com"]
 
 app.add_middleware(
     CORSMiddleware,
